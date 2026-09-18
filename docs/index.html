@@ -31,6 +31,51 @@
 
   <title>Restaurant Day</title>
   <link rel="manifest" href="manifest.json">
+
+  <!--
+    Browser notifications. The app calls rdNotifyArm() once someone has signed
+    in; the permission prompt then rides on their next tap, because browsers
+    refuse the request without a real gesture. rdNotify() stays quiet while the
+    tab is in front — the in-app banner covers that case.
+  -->
+  <script>
+    (function () {
+      var armed = false;
+      function has() { return typeof Notification !== 'undefined'; }
+
+      window.rdNotifySupported = function () {
+        try { return has(); } catch (e) { return false; }
+      };
+
+      window.rdNotifyArm = function () {
+        try {
+          if (armed || !has() || Notification.permission !== 'default') return;
+          armed = true;
+          var ask = function () {
+            document.removeEventListener('pointerdown', ask, true);
+            document.removeEventListener('keydown', ask, true);
+            try { Notification.requestPermission(); } catch (e) {}
+          };
+          document.addEventListener('pointerdown', ask, true);
+          document.addEventListener('keydown', ask, true);
+        } catch (e) {}
+      };
+
+      window.rdNotify = function (title, body) {
+        try {
+          if (!has() || Notification.permission !== 'granted') return;
+          if (document.visibilityState === 'visible') return;
+          var n = new Notification(title, {
+            body: body,
+            icon: 'icons/Icon-192.png',
+            badge: 'icons/Icon-192.png',
+            tag: 'restaurant-day-' + Date.now()
+          });
+          n.onclick = function () { window.focus(); n.close(); };
+        } catch (e) {}
+      };
+    })();
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
