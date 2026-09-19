@@ -33,46 +33,69 @@
   <link rel="manifest" href="manifest.json">
 
   <!--
-    Browser notifications. The app calls rdNotifyArm() once someone has signed
-    in; the permission prompt then rides on their next tap, because browsers
-    refuse the request without a real gesture. rdNotify() stays quiet while the
-    tab is in front — the in-app banner covers that case.
+    Browser notifications. The app can ask for permission outright (from a
+    button, which counts as the gesture browsers require), check the current
+    state, raise an update popup, and fire a test one. rdNotify() stays quiet
+    while the tab is in front — the in-app banner covers that case — while
+    rdNotifyTest() always shows, so a person can prove it works.
   -->
   <script>
     (function () {
-      var armed = false;
       function has() { return typeof Notification !== 'undefined'; }
 
       window.rdNotifySupported = function () {
-        try { return has(); } catch (e) { return false; }
+        try { return has() && typeof Notification.requestPermission === 'function'; }
+        catch (e) { return false; }
       };
 
+      window.rdNotifyPermission = function () {
+        try { return has() ? Notification.permission : 'unsupported'; }
+        catch (e) { return 'unsupported'; }
+      };
+
+      window.rdNotifyRequest = function () {
+        try {
+          if (!has()) return;
+          Notification.requestPermission();
+        } catch (e) {}
+      };
+
+      // Kept for older builds; asking outright is better.
       window.rdNotifyArm = function () {
         try {
-          if (armed || !has() || Notification.permission !== 'default') return;
-          armed = true;
+          if (!has() || Notification.permission !== 'default') return;
           var ask = function () {
             document.removeEventListener('pointerdown', ask, true);
-            document.removeEventListener('keydown', ask, true);
             try { Notification.requestPermission(); } catch (e) {}
           };
           document.addEventListener('pointerdown', ask, true);
-          document.addEventListener('keydown', ask, true);
         } catch (e) {}
       };
+
+      function raise(title, body) {
+        var n = new Notification(title, {
+          body: body,
+          icon: 'icons/Icon-192.png',
+          badge: 'icons/Icon-192.png',
+          tag: 'restaurant-day-' + Date.now()
+        });
+        n.onclick = function () { window.focus(); n.close(); };
+      }
 
       window.rdNotify = function (title, body) {
         try {
           if (!has() || Notification.permission !== 'granted') return;
           if (document.visibilityState === 'visible') return;
-          var n = new Notification(title, {
-            body: body,
-            icon: 'icons/Icon-192.png',
-            badge: 'icons/Icon-192.png',
-            tag: 'restaurant-day-' + Date.now()
-          });
-          n.onclick = function () { window.focus(); n.close(); };
+          raise(title, body);
         } catch (e) {}
+      };
+
+      window.rdNotifyTest = function (title, body) {
+        try {
+          if (!has() || Notification.permission !== 'granted') return false;
+          raise(title, body);
+          return true;
+        } catch (e) { return false; }
       };
     })();
   </script>
